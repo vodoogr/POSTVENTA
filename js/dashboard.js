@@ -34,122 +34,155 @@ const DashboardScreen = (() => {
       .map(([name, info]) => ({ name, count: info.count, valor: info.valor }));
 
     container.innerHTML = `
-      <div class="section-header">
+      <div class="section-header" style="margin-bottom: var(--space-xl); align-items: flex-end;">
         <div>
-          <h3>Resumen Operacional</h3>
-          <p style="color:var(--text-secondary);font-size:var(--font-sm);margin-top:4px;">
-            Última actualización: ${new Date().toLocaleString('es-ES')}
+          <h2 style="font-size: var(--font-3xl); font-weight: 800; letter-spacing: -1.5px; line-height: 1;">Centro de Operaciones</h2>
+          <p style="color:var(--text-tertiary); font-size:var(--font-sm); margin-top: 8px; font-weight: 500;">
+            Estado del Stock Crítico y Gestión de Proveedores · ${new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
         </div>
-        ${hasData ? `<button class="btn btn-outline btn-sm" onclick="DashboardScreen.exportData()">
-          <span class="material-symbols-rounded">download</span> Exportar
-        </button>` : ''}
+        ${hasData ? `
+        <div style="display:flex; gap: var(--space-sm);">
+          <button class="btn btn-outline btn-sm" onclick="DashboardScreen.exportData()" style="padding: 10px 20px;">
+            <span class="material-symbols-rounded">download</span> Exportar Reporte
+          </button>
+        </div>` : ''}
       </div>
 
       ${!hasData ? renderEmptyState() : `
         <!-- KPI Cards -->
         <div class="dashboard-grid">
-          <div class="kpi-card kpi-danger">
+          <div class="kpi-card">
             <div class="kpi-header">
-              <span class="kpi-label">Valor Total Stock</span>
+              <span class="kpi-label">Exposición Total</span>
               <div class="kpi-icon icon-danger">
-                <span class="material-symbols-rounded">inventory</span>
+                <span class="material-symbols-rounded">payments</span>
               </div>
             </div>
             <div class="kpi-value">${Components.formatCurrency(totalValorStock)}</div>
-            <div class="kpi-sub">${Components.formatNumber(totalRefs)} referencias · Defectuoso: ${Components.formatCurrency(totalValorDefectuoso)}</div>
+            <div class="kpi-sub">
+              <span class="material-symbols-rounded" style="font-size:16px; color:var(--danger);">error</span>
+              ${Components.formatCurrency(totalValorDefectuoso)} en riesgo
+            </div>
           </div>
 
-          <div class="kpi-card kpi-warning">
+          <div class="kpi-card">
             <div class="kpi-header">
-              <span class="kpi-label">Proveedores</span>
+              <span class="kpi-label">Panel de Socios</span>
               <div class="kpi-icon icon-warning">
-                <span class="material-symbols-rounded">groups</span>
+                <span class="material-symbols-rounded">handshake</span>
               </div>
             </div>
             <div class="kpi-value">${metrics.length}</div>
-            <div class="kpi-sub">${numProvCriticos} críticos (top 10%)</div>
+            <div class="kpi-sub">
+              <span class="material-symbols-rounded" style="font-size:16px; color:var(--warning);">notification_important</span>
+              ${numProvCriticos} requieren acción inmediata
+            </div>
           </div>
 
-          <div class="kpi-card kpi-info">
+          <div class="kpi-card">
             <div class="kpi-header">
-              <span class="kpi-label">Refs. Defectuosas</span>
+              <span class="kpi-label">Volumen Defectuoso</span>
               <div class="kpi-icon icon-info">
                 <span class="material-symbols-rounded">inventory_2</span>
               </div>
             </div>
             <div class="kpi-value">${Components.formatNumber(totalRefsDefectuosas)}</div>
-            <div class="kpi-sub">De ${Components.formatNumber(totalRefs)} totales</div>
+            <div class="kpi-sub">
+              <span class="material-symbols-rounded" style="font-size:16px; color:var(--info);">info</span>
+              ${Math.round((totalRefsDefectuosas / totalRefs) * 100)}% del catálogo total
+            </div>
           </div>
 
-          <div class="kpi-card kpi-success">
+          <div class="kpi-card">
             <div class="kpi-header">
-              <span class="kpi-label">Antigüedad Media</span>
+              <span class="kpi-label">Eficiencia Operativa</span>
               <div class="kpi-icon icon-success">
-                <span class="material-symbols-rounded">schedule</span>
+                <span class="material-symbols-rounded">shutter_speed</span>
               </div>
             </div>
-            <div class="kpi-value">${Components.formatNumber(avgAge)} <span style="font-size:var(--font-sm);font-weight:400;">días</span></div>
-            <div class="kpi-sub">Del stock defectuoso</div>
+            <div class="kpi-value">${Components.formatNumber(avgAge)} <span style="font-size:var(--font-sm); opacity:0.6; font-weight:400;">días</span></div>
+            <div class="kpi-sub">
+              <span class="material-symbols-rounded" style="font-size:16px; color:var(--success);">trending_down</span>
+              Antigüedad media de stock
+            </div>
           </div>
         </div>
 
-        <!-- Charts -->
         <div class="charts-grid">
+          <!-- Main Area Chart -->
           <div class="chart-card">
-            <div class="card-header">
-              <h4 class="card-title">Top 10 Proveedores por Valor Stock</h4>
-            </div>
-            <canvas id="supplierChart"></canvas>
-          </div>
-          <div class="chart-card">
-            <div class="card-header">
-              <h4 class="card-title">Distribución por Familia</h4>
-            </div>
-            <canvas id="familyChart"></canvas>
-          </div>
-        </div>
-
-        <!-- Supplier Detail Filter -->
-        <div class="card" style="margin-top:var(--space-lg);padding:var(--space-md) var(--space-lg);">
-          <div class="card-header" style="display:flex;align-items:center;gap:var(--space-md);flex-wrap:wrap;">
-            <h4 class="card-title" style="margin:0;">
-              <span class="material-symbols-rounded" style="vertical-align:middle;margin-right:4px;">filter_list</span>
-              Detalle por Proveedor — Stock Defectuoso
+            <h4 class="card-title">
+              <span class="material-symbols-rounded" style="color:var(--primary-400);">analytics</span>
+              Análisis Valoración por Proveedor
             </h4>
-            <select id="supplierFilterSelect" style="padding:6px 12px;border-radius:var(--radius-md);border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:var(--font-sm);min-width:280px;cursor:pointer;">
-              <option value="">— Selecciona un proveedor —</option>
-              ${suppliersWithDefective.map(s =>
-      `<option value="${s.name}">${s.name} (${s.count} arts · ${Components.formatCurrency(s.valor)})</option>`
-    ).join('')}
-            </select>
-          </div>
-          <div id="supplierDetailChartWrap" style="display:none;margin-top:var(--space-md);">
-            <div style="height:350px;position:relative;">
-              <canvas id="supplierDetailChart"></canvas>
+            <div style="height: 350px;">
+              <canvas id="supplierChart"></canvas>
             </div>
-            <p style="text-align:center;font-size:var(--font-xs);color:var(--text-tertiary);margin-top:var(--space-xs);">Haz clic en una barra para ver detalle y crear reclamación</p>
           </div>
-          <div id="supplierDetailEmpty" style="text-align:center;padding:var(--space-lg);color:var(--text-tertiary);font-size:var(--font-sm);">
-            Selecciona un proveedor del desplegable para ver sus artículos defectuosos
+
+          <!-- Secondary List/Chart -->
+          <div class="chart-card">
+            <h4 class="card-title">
+              <span class="material-symbols-rounded" style="color:var(--info);">pie_chart</span>
+              Distribución por Familia
+            </h4>
+            <div style="height: 350px;">
+              <canvas id="familyChart"></canvas>
+            </div>
           </div>
         </div>
 
-        <!-- Alerts Table -->
-        <div class="card alerts-section">
-          <div class="card-header">
-            <h4 class="card-title">Proveedores por Valor de Stock</h4>
-            <span class="badge badge-danger">${metrics.length} proveedores</span>
-          </div>
-          ${metrics.slice(0, 15).map(m => `
-            <div class="alert-row">
-              <div class="alert-priority ${m.totalValorStock > 5000 ? 'high' : m.totalValorStock > 1000 ? 'medium' : 'low'}"></div>
-              <div class="alert-text">
-                <strong>${m.nombre}</strong> — ${m.numReferencias} refs (${m.numDefectuosos} defectuosas), antigüedad media ${m.antiguedadMedia} días
-              </div>
-              <div class="alert-value">${Components.formatCurrency(m.totalValorStock)}</div>
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-lg);">
+          <!-- Detailed Drilling -->
+          <div class="chart-card">
+            <h4 class="card-title">
+              <span class="material-symbols-rounded">manage_search</span>
+              Inspección Detallada de Activos
+            </h4>
+            <div style="display:flex; align-items:center; gap: var(--space-md); margin-bottom: var(--space-lg); background: var(--bg-tertiary); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+              <span class="material-symbols-rounded" style="color: var(--text-tertiary);">search</span>
+              <select id="supplierFilterSelect" style="flex:1; border:none; background:transparent; color:var(--text-primary); font-size:var(--font-sm); cursor:pointer; outline:none;">
+                <option value="">Buscar proveedor para desglose...</option>
+                ${suppliersWithDefective.map(s =>
+                  `<option value="${s.name}">${s.name} (${s.count} arts · ${Components.formatCurrency(s.valor)})</option>`
+                ).join('')}
+              </select>
             </div>
-          `).join('')}
+            <div id="supplierDetailChartWrap" style="display:none;">
+              <div style="height:350px;position:relative;">
+                <canvas id="supplierDetailChart"></canvas>
+              </div>
+            </div>
+            <div id="supplierDetailEmpty" style="text-align:center;padding: var(--space-3xl) 0; color:var(--text-tertiary); font-size:var(--font-sm); border: 2px dashed var(--border-color); border-radius: var(--radius-lg);">
+              <span class="material-symbols-rounded" style="font-size: 48px; display: block; margin-bottom: 12px; opacity: 0.3;">selection</span>
+              Selecciona un proveedor para visualizar su inventario defectuoso
+            </div>
+          </div>
+
+          <!-- Vertical Alerts List -->
+          <div class="alerts-section">
+            <div style="padding: var(--space-lg); border-bottom: 1px solid var(--border-color);">
+              <h4 class="card-title" style="margin: 0;">Prioridades de Acción</h4>
+            </div>
+            <div style="max-height: 520px; overflow-y: auto;">
+              ${metrics.slice(0, 10).map(m => `
+                <div class="alert-item">
+                  <div class="alert-status" style="color: ${m.totalValorStock > 5000 ? 'var(--danger)' : m.totalValorStock > 1000 ? 'var(--warning)' : 'var(--success)'};"></div>
+                  <div class="alert-content">
+                    <div class="alert-title">${m.nombre}</div>
+                    <div class="alert-desc">${m.numDefectuosos} incidencias · ${m.antiguedadMedia}d media</div>
+                  </div>
+                  <div class="alert-value" style="color: ${m.totalValorStock > 5000 ? 'var(--danger)' : 'var(--text-primary)'};">
+                    ${Components.formatCurrency(m.totalValorStock)}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+            <div style="padding: var(--space-md); text-align: center;">
+              <button class="btn btn-ghost btn-sm" onclick="App.navigate('proveedores')">Ver todos los proveedores →</button>
+            </div>
+          </div>
         </div>
       `}
     `;
@@ -181,22 +214,29 @@ const DashboardScreen = (() => {
   }
 
   function renderCharts(metrics, allData) {
-    // Supplier bar chart with click drill-down
     const top10 = metrics.slice(0, 10);
     const ctx1 = document.getElementById('supplierChart');
+    
     if (ctx1) {
       if (supplierChart) supplierChart.destroy();
+      
+      const gradient = ctx1.getContext('2d').createLinearGradient(0, 0, 0, 400);
+      gradient.addColorStop(0, 'rgba(19, 127, 236, 0.4)');
+      gradient.addColorStop(1, 'rgba(19, 127, 236, 0.05)');
+
       supplierChart = new Chart(ctx1, {
         type: 'bar',
         data: {
           labels: top10.map(m => m.nombre.length > 20 ? m.nombre.substring(0, 20) + '…' : m.nombre),
           datasets: [{
-            label: 'Valor Stock Inventario (€)',
+            label: 'Valor Stock (€)',
             data: top10.map(m => m.totalValorStock),
-            backgroundColor: 'rgba(19, 127, 236, 0.6)',
-            borderColor: 'rgba(19, 127, 236, 1)',
-            borderWidth: 1,
-            borderRadius: 4
+            backgroundColor: gradient,
+            borderColor: '#137fec',
+            borderWidth: 2,
+            borderRadius: 8,
+            hoverBackgroundColor: '#137fec',
+            fill: true
           }]
         },
         options: {
@@ -205,45 +245,44 @@ const DashboardScreen = (() => {
           onClick: (evt, elements) => {
             if (elements.length > 0) {
               const idx = elements[0].index;
-              const supplier = top10[idx];
-              showSupplierDrillDown(supplier.nombre, allData);
+              showSupplierDrillDown(top10[idx].nombre, allData);
             }
-          },
-          onHover: (evt, elements) => {
-            evt.native.target.style.cursor = elements.length > 0 ? 'pointer' : 'default';
           },
           plugins: {
             legend: { display: false },
             tooltip: {
+              backgroundColor: '#1e293b',
+              titleFont: { size: 14, weight: 'bold' },
+              padding: 12,
+              cornerRadius: 12,
+              displayColors: false,
               callbacks: {
-                label: (ctx) => Components.formatCurrency(ctx.parsed.y),
-                afterLabel: () => '(Haz clic para ver artículos)'
+                label: (ctx) => `Valoración: ${Components.formatCurrency(ctx.parsed.y)}`
               }
             }
           },
           scales: {
             y: {
               beginAtZero: true,
-              grid: { color: 'rgba(255,255,255,0.05)' },
-              ticks: { color: '#94a3b8', callback: v => Components.formatCurrency(v) }
+              grid: { color: 'rgba(255, 255, 255, 0.03)', drawBorder: false },
+              ticks: { color: '#64748b', font: { size: 11 }, callback: v => Components.formatCurrency(v) }
             },
             x: {
               grid: { display: false },
-              ticks: { color: '#94a3b8', maxRotation: 45 }
+              ticks: { color: '#94a3b8', font: { size: 11 } }
             }
           }
         }
       });
     }
 
-    // Family distribution doughnut
     const familyMap = {};
     allData.forEach(r => {
       const fam = r['DFamil_N1'] || r['DFamil_N2'] || 'Sin Clasificar';
       familyMap[fam] = (familyMap[fam] || 0) + (r._valorStock || 0);
     });
-    const families = Object.entries(familyMap).sort((a, b) => b[1] - a[1]).slice(0, 8);
-    const colors = ['#137fec', '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b', '#22c55e', '#06b6d4'];
+    const families = Object.entries(familyMap).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    const colors = ['#137fec', '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b'];
 
     const ctx2 = document.getElementById('familyChart');
     if (ctx2) {
@@ -255,18 +294,24 @@ const DashboardScreen = (() => {
           datasets: [{
             data: families.map(f => f[1]),
             backgroundColor: colors,
-            borderWidth: 0
+            hoverOffset: 20,
+            borderWidth: 4,
+            borderColor: '#111827'
           }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          cutout: '75%',
           plugins: {
             legend: {
               position: 'bottom',
-              labels: { color: '#94a3b8', padding: 12, font: { size: 11 } }
+              labels: { color: '#94a3b8', padding: 20, font: { size: 12, weight: '500' }, usePointStyle: true }
             },
             tooltip: {
+              backgroundColor: '#1e293b',
+              padding: 12,
+              cornerRadius: 12,
               callbacks: {
                 label: (ctx) => `${ctx.label}: ${Components.formatCurrency(ctx.parsed)}`
               }
