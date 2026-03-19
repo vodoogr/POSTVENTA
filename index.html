@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control Stock 63 — Gestión de Stock Postventa</title>
+  <meta name="description"
+    content="Aplicación de gestión y reducción de stock defectuoso mediante análisis de datos y gestión de proveedores">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Symbols+Rounded" rel="stylesheet">
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/screens.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body>
+  <!-- Sidebar Navigation -->
+  <nav id="sidebar" class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">
+        <span class="material-symbols-rounded">inventory_2</span>
+      </div>
+      <div class="brand-text">
+        <h1>Control Stock</h1>
+        <span class="brand-sub">Centro 63</span>
+        <span class="brand-version">v16/02/2026 06:16</span>
+      </div>
+    </div>
+
+    <div class="sidebar-nav">
+      <a href="#dashboard" class="nav-item active" data-page="dashboard">
+        <span class="material-symbols-rounded">dashboard</span>
+        <span>Dashboard</span>
+      </a>
+      <a href="#stock" class="nav-item" data-page="stock">
+        <span class="material-symbols-rounded">inventory_2</span>
+        <span>Stock Defectuoso</span>
+      </a>
+      <a href="#proveedores" class="nav-item" data-page="proveedores">
+        <span class="material-symbols-rounded">groups</span>
+        <span>Proveedores</span>
+      </a>
+      <a href="#reclamaciones" class="nav-item" data-page="reclamaciones">
+        <span class="material-symbols-rounded">report_problem</span>
+        <span>Reclamaciones</span>
+      </a>
+      <a href="#recomendaciones" class="nav-item" data-page="recomendaciones">
+        <span class="material-symbols-rounded">lightbulb</span>
+        <span>Recomendaciones</span>
+      </a>
+      <a href="#configuracion" class="nav-item" data-page="configuracion">
+        <span class="material-symbols-rounded">settings</span>
+        <span>Configuración</span>
+      </a>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="upload-zone" id="uploadZone">
+        <span class="material-symbols-rounded">upload_file</span>
+        <span>Cargar datos CSV/Excel</span>
+        <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" multiple hidden>
+      </div>
+      <div class="upload-zone" id="supabaseLoadZone"
+        style="margin-top:8px;border-color:var(--primary);background:rgba(99,102,241,0.05);">
+        <span class="material-symbols-rounded" style="color:var(--primary);">cloud_download</span>
+        <span style="color:var(--primary);">Cargar desde Supabase</span>
+      </div>
+      <div id="supabaseStatusIndicator"
+        style="margin-top:6px;border-radius:var(--radius-md);background:var(--bg-tertiary);border:1px solid var(--border-color);font-size:12px;">
+        <div style="display:flex;align-items:center;gap:6px;padding:8px 12px;">
+          <span class="material-symbols-rounded" style="font-size:18px;color:#6b7280;">cloud_off</span>
+          <span style="font-size:12px;font-weight:600;color:#6b7280;">Desconectado</span>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main id="mainContent" class="main-content">
+    <!-- Top bar -->
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <button id="menuToggle" class="btn-icon">
+          <span class="material-symbols-rounded">menu</span>
+        </button>
+        <h2 id="pageTitle" class="page-title">Dashboard</h2>
+      </div>
+      <div class="top-bar-right" style="display:flex;align-items:center;gap:var(--space-md);">
+        <div id="userBadge"></div>
+        <div class="data-status" id="dataStatus">
+          <span class="status-dot offline"></span>
+          <span>Sin datos cargados</span>
+        </div>
+        <button id="btnExport" class="btn btn-outline btn-sm" style="display:none;">
+          <span class="material-symbols-rounded">download</span>
+          Exportar
+        </button>
+      </div>
+    </header>
+
+    <!-- Page container -->
+    <div id="pageContainer" class="page-container">
+      <!-- Pages are rendered dynamically -->
+    </div>
+  </main>
+
+  <!-- Modal Container -->
+  <div id="modalOverlay" class="modal-overlay hidden">
+    <div id="modalContent" class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalTitle"></h3>
+        <button class="btn-icon modal-close" id="modalClose">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+      <div id="modalBody" class="modal-body"></div>
+      <div id="modalFooter" class="modal-footer"></div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- File Upload Dialog (Two-Step) -->
+  <div id="uploadDialog" class="modal-overlay hidden">
+    <div class="modal-content upload-modal" style="max-width:560px;">
+      <div class="modal-header">
+        <h3>Cargar Archivos de Datos</h3>
+        <button class="btn-icon modal-close" onclick="document.getElementById('uploadDialog').classList.add('hidden')">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+      <div class="modal-body" style="padding:var(--space-md) var(--space-lg);">
+
+        <!-- Step 1: Stock CSV -->
+        <div class="upload-step" id="uploadStep1">
+          <div class="upload-step-header">
+            <span class="upload-step-number" id="step1Icon">1</span>
+            <div>
+              <strong>Archivo de Stock</strong>
+              <span style="font-size:var(--font-xs);color:var(--text-tertiary);margin-left:8px;">CSV / Excel</span>
+            </div>
+          </div>
+          <div class="upload-area upload-area-sm" id="uploadAreaStock">
+            <span class="material-symbols-rounded" style="font-size:28px;color:var(--text-tertiary);">inventory_2</span>
+            <p style="margin:4px 0 0;">Arrastra tu archivo de Stock o <u>haz clic</u></p>
+            <input type="file" id="fileInputStock" accept=".csv,.xlsx,.xls" hidden>
+          </div>
+          <div id="stockFileLoaded" class="upload-file-done hidden">
+            <span class="material-symbols-rounded" style="color:var(--success);font-size:20px;">check_circle</span>
+            <span id="stockFileName">—</span>
+            <span id="stockFileRows" style="color:var(--text-tertiary);font-size:var(--font-xs);"></span>
+            <button class="btn-icon" id="btnRemoveStock" title="Quitar" style="margin-left:auto;">
+              <span class="material-symbols-rounded" style="font-size:16px;">close</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="upload-step-divider"></div>
+
+        <!-- Step 2: Proveedores XLSX -->
+        <div class="upload-step" id="uploadStep2">
+          <div class="upload-step-header">
+            <span class="upload-step-number" id="step2Icon">2</span>
+            <div>
+              <strong>Archivo de Proveedores</strong>
+              <span style="font-size:var(--font-xs);color:var(--text-tertiary);margin-left:8px;">XLSX / Excel</span>
+            </div>
+          </div>
+          <div class="upload-area upload-area-sm" id="uploadAreaProv">
+            <span class="material-symbols-rounded" style="font-size:28px;color:var(--text-tertiary);">groups</span>
+            <p style="margin:4px 0 0;">Arrastra tu archivo de Proveedores o <u>haz clic</u></p>
+            <input type="file" id="fileInputProv" accept=".csv,.xlsx,.xls" hidden>
+          </div>
+          <div id="provFileLoaded" class="upload-file-done hidden">
+            <span class="material-symbols-rounded" style="color:var(--success);font-size:20px;">check_circle</span>
+            <span id="provFileName">—</span>
+            <span id="provFileRows" style="color:var(--text-tertiary);font-size:var(--font-xs);"></span>
+            <button class="btn-icon" id="btnRemoveProv" title="Quitar" style="margin-left:auto;">
+              <span class="material-symbols-rounded" style="font-size:16px;">close</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="upload-step-divider"></div>
+
+        <!-- Step 3: Incidencias CSV (optional) -->
+        <div class="upload-step" id="uploadStep3">
+          <div class="upload-step-header">
+            <span class="upload-step-number" id="step3Icon">3</span>
+            <div>
+              <strong>Archivo de Incidencias</strong>
+              <span style="font-size:var(--font-xs);color:var(--text-tertiary);margin-left:8px;">CSV / Excel
+                (opcional)</span>
+            </div>
+          </div>
+          <div class="upload-area upload-area-sm" id="uploadAreaIncid">
+            <span class="material-symbols-rounded" style="font-size:28px;color:var(--text-tertiary);">bug_report</span>
+            <p style="margin:4px 0 0;">Arrastra tu archivo de Incidencias o <u>haz clic</u></p>
+            <input type="file" id="fileInputIncid" accept=".csv,.xlsx,.xls" hidden>
+          </div>
+          <div id="incidFileLoaded" class="upload-file-done hidden">
+            <span class="material-symbols-rounded" style="color:var(--success);font-size:20px;">check_circle</span>
+            <span id="incidFileName">—</span>
+            <span id="incidFileRows" style="color:var(--text-tertiary);font-size:var(--font-xs);"></span>
+            <button class="btn-icon" id="btnRemoveIncid" title="Quitar" style="margin-left:auto;">
+              <span class="material-symbols-rounded" style="font-size:16px;">close</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost"
+          onclick="document.getElementById('uploadDialog').classList.add('hidden')">Cancelar</button>
+        <button class="btn btn-primary" id="btnProcessUpload" disabled>
+          <span class="material-symbols-rounded" style="font-size:18px;margin-right:4px;">play_arrow</span>
+          Procesar Datos
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JS Modules -->
+  <script src="js/columns.js"></script>
+  <!-- Progress Modal -->
+  <div id="progressModal" class="modal-overlay hidden" style="z-index: 2000;">
+    <div class="modal-content" style="max-width: 400px; text-align: center; padding: 32px;">
+      <h3 id="progressTitle" style="margin-bottom: 16px;">Sincronizando...</h3>
+      <div class="progress-bar-container"
+        style="background: var(--bg-secondary); border-radius: 99px; height: 8px; overflow: hidden; margin-bottom: 12px;">
+        <div id="progressBar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.3s ease;">
+        </div>
+      </div>
+      <p id="progressText" style="color: var(--text-secondary); font-size: 14px;">Iniciando...</p>
+    </div>
+  </div>
+
+  <script src="js/store.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/parser.js"></script>
+  <script src="js/recommendations.js"></script>
+  <script src="js/components.js"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/stock.js"></script>
+  <script src="js/proveedores.js"></script>
+  <script src="js/reclamaciones.js"></script>
+  <script src="js/recomendaciones.js"></script>
+  <script src="js/configuracion.js"></script>
+  <script src="js/app.js"></script>
+</body>
+
+</html>
