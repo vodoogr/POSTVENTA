@@ -34,10 +34,24 @@ const DashboardScreen = (() => {
       .sort((a, b) => b[1].valor - a[1].valor)
       .map(([name, info]) => ({ name, count: info.count, valor: info.valor }));
 
+    const progressPct = targetStock > 0 ? Math.min((totalValorStock / targetStock) * 100, 100) : 0;
+    
+    const targetStatusText = isUnderTarget 
+      ? `Faltan <strong style="color:var(--success);">${Components.formatCurrency(diffTarget)}</strong> para alcanzar el límite`
+      : `Exceso de <strong style="color:var(--danger);">${Components.formatCurrency(Math.abs(diffTarget))}</strong> sobre el límite`;
+
     const targetIndicator = `
-      <div style="display:flex; align-items:center; gap:4px; font-size:var(--font-xs); font-weight:700; color:${isUnderTarget ? 'var(--success)' : 'var(--danger)'}; margin-top:4px;">
-        <span class="material-symbols-rounded" style="font-size:16px;">${isUnderTarget ? 'trending_down' : 'trending_up'}</span>
-        ${isUnderTarget ? 'POR DEBAJO' : 'POR ENCIMA'} (${Math.round(diffPercent)}%)
+      <div style="margin-top: 12px;">
+        <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--text-tertiary); text-transform:uppercase; margin-bottom:4px; font-weight:700;">
+          <span>Progreso Objetivo</span>
+          <span>${Math.round((totalValorStock / targetStock) * 100)}%</span>
+        </div>
+        <div style="height:6px; background:rgba(255,255,255,0.05); border-radius:10px; overflow:hidden;">
+          <div style="width:${progressPct}%; height:100%; background:${isUnderTarget ? 'var(--grad-primary)' : 'var(--danger)'}; box-shadow: 0 0 10px ${isUnderTarget ? 'var(--primary-400)' : 'var(--danger)'};"></div>
+        </div>
+        <div style="font-size:var(--font-xs); margin-top:8px; line-height:1.2; color:var(--text-secondary);">
+          ${targetStatusText}
+        </div>
       </div>
     `;
 
