@@ -22,6 +22,18 @@ const DashboardScreen = (() => {
     const totalRefsDefectuosas = defective.length;
     const avgAge = totalRefsDefectuosas > 0 ? Math.round(defective.reduce((s, r) => s + (r._antiguedadDias || 0), 0) / totalRefsDefectuosas) : 0;
 
+    // Get suppliers with defective stock, sorted by defective value (Required for dropdown)
+    const defectiveBySupplier = {};
+    defective.forEach(r => {
+      const prov = r['Proveedor'] || r._proveedor || 'Desconocido';
+      if (!defectiveBySupplier[prov]) defectiveBySupplier[prov] = { count: 0, valor: 0 };
+      defectiveBySupplier[prov].count++;
+      defectiveBySupplier[prov].valor += (r._valorStock || 0);
+    });
+    const suppliersWithDefective = Object.entries(defectiveBySupplier)
+      .sort((a, b) => b[1].valor - a[1].valor)
+      .map(([name, info]) => ({ name, count: info.count, valor: info.valor }));
+
     const targetIndicator = `
       <div style="display:flex; align-items:center; gap:4px; font-size:var(--font-xs); font-weight:700; color:${isUnderTarget ? 'var(--success)' : 'var(--danger)'}; margin-top:4px;">
         <span class="material-symbols-rounded" style="font-size:16px;">${isUnderTarget ? 'trending_down' : 'trending_up'}</span>
