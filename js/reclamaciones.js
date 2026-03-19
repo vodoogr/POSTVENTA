@@ -445,24 +445,30 @@ const ReclamacionesScreen = (() => {
       </div>
       <div class="form-group">
         <label class="form-label">Asunto</label>
-        <input class="form-input" id="emailSubject" value="Reclamación ${claim.id} — Artículos defectuosos — ${claim.proveedor}">
+        <div style="display:flex;gap:var(--space-xs);">
+          <input class="form-input" id="emailSubject" value="Reclamación ${claim.id} — Artículos defectuosos — ${claim.proveedor}" style="flex:1;">
+          <button class="btn btn-outline" onclick="navigator.clipboard.writeText(document.getElementById('emailSubject').value); Components.showToast('Asunto copiado', 'success')" title="Copiar Asunto">
+            <span class="material-symbols-rounded">content_copy</span>
+          </button>
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">Mensaje</label>
         <textarea class="email-template" id="emailBody" rows="18">${template}</textarea>
       </div>
-      <div style="padding:var(--space-xs) var(--space-sm);background:var(--bg-tertiary);border-radius:var(--radius-sm);font-size:var(--font-xs);color:var(--text-tertiary);">
-        Campos: ${selectedKeys.join(', ')} · Remitentes: ${selectedSenders.join(', ')}
+      <div style="padding:var(--space-sm) var(--space-md);background:rgba(19, 127, 236, 0.1); border:1px solid rgba(19, 127, 236, 0.2); border-radius:var(--radius-md); font-size:var(--font-xs); color:var(--primary-300); margin-top:var(--space-md); display:flex; align-items:center; gap:var(--space-sm);">
+        <span class="material-symbols-rounded" style="font-size:20px;">info</span>
+        <span><strong>Tip para Citrix:</strong> Copia el <strong>asunto</strong> y el <strong>cuerpo</strong> por separado y pégalos en tu Outlook remoto.</span>
       </div>
     `;
 
     Components.openModal('Email de Reclamación — ' + claim.id, body,
-      `<button class="btn btn-ghost" onclick="Components.closeModal()">Cancelar</button>
-       <button class="btn btn-outline btn-sm" id="btnCopyEmail" title="Copiar al portapapeles">
-         <span class="material-symbols-rounded">content_copy</span> Copiar
+      `<button class="btn btn-ghost" onclick="Components.closeModal()">Cerrar</button>
+       <button class="btn btn-primary" id="btnCopyEmail" style="background:var(--grad-primary);">
+         <span class="material-symbols-rounded">content_copy</span> Copiar Cuerpo del Mensaje
        </button>
-       <button class="btn btn-primary" id="btnOpenMailto">
-         <span class="material-symbols-rounded">mail</span> Enviar Email
+       <button class="btn btn-outline" id="btnOpenMailto" title="Intentar abrir en PC Local">
+         <span class="material-symbols-rounded">open_in_new</span> Abrir en Cliente Local
        </button>`, 'lg'
     );
 

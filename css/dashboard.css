@@ -188,4 +188,11 @@
 
 @media (max-width: 768px) {
     .dashboard-grid { grid-template-columns: 1fr; }
-}
+}
+
+/* FIX: Visibilidad desplegable en modo oscuro */
+#supplierFilterSelect, 
+#supplierFilterSelect option {
+    background-color: #1a2332 !important;
+    color: #ffffff !important;
+}
