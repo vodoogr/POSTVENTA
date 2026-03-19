@@ -13,6 +13,7 @@ const Store = (() => {
         productMetrics: [],
         recommendations: [],
         reclamaciones: [],
+        objetivoStock: 0,
         config: {
             umbralAntiguedad: 365,
             umbralValorReclamacion: 500,
@@ -65,6 +66,18 @@ Centro 63 — Departamento de Postventa
         Object.assign(state.config, newConfig);
         localStorage.setItem('cs63_config', JSON.stringify(state.config));
         emit('config-changed', state.config);
+    }
+
+    // Objetivo management
+    function setObjetivo(val) {
+        state.objetivoStock = parseFloat(val) || 0;
+        localStorage.setItem('cs63_objetivo', state.objetivoStock);
+        emit('data-recalculated', state); // Trigger UI refresh
+    }
+
+    function loadObjetivo() {
+        const saved = localStorage.getItem('cs63_objetivo');
+        state.objetivoStock = saved ? parseFloat(saved) : 100000; // Default 100k
     }
 
     // Stock data
@@ -337,6 +350,7 @@ Centro 63 — Departamento de Postventa
     // Init
     loadConfig();
     loadReclamaciones();
+    loadObjetivo();
 
     return {
         state,
@@ -353,6 +367,7 @@ Centro 63 — Departamento de Postventa
         updateReclamacion,
         deleteReclamacion,
         addProveedor,
-        updateProveedor
+        updateProveedor,
+        setObjetivo
     };
 })();

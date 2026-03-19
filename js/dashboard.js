@@ -15,32 +15,73 @@ const DashboardScreen = (() => {
 
     // KPIs — total stock value (all items) and defective subset
     const totalValorStock = joined.reduce((sum, r) => sum + (r._valorStock || 0), 0);
-    const totalValorDefectuoso = defective.reduce((sum, r) => sum + (r._valorStock || 0), 0);
-    const totalRefs = joined.length;
+    const targetStock = s.objetivoStock || 0;
+    const diffTarget = targetStock - totalValorStock;
+    const isUnderTarget = diffTarget >= 0;
+    const diffPercent = targetStock > 0 ? Math.abs((diffTarget / targetStock) * 100) : 0;
     const totalRefsDefectuosas = defective.length;
-    const numProvCriticos = Math.max(1, Math.ceil(metrics.length * 0.1));
     const avgAge = totalRefsDefectuosas > 0 ? Math.round(defective.reduce((s, r) => s + (r._antiguedadDias || 0), 0) / totalRefsDefectuosas) : 0;
 
-    // Get suppliers with defective stock, sorted by defective value
-    const defectiveBySupplier = {};
-    defective.forEach(r => {
-      const prov = r['Proveedor'] || 'Desconocido';
-      if (!defectiveBySupplier[prov]) defectiveBySupplier[prov] = { count: 0, valor: 0 };
-      defectiveBySupplier[prov].count++;
-      defectiveBySupplier[prov].valor += (r._valorStock || 0);
-    });
-    const suppliersWithDefective = Object.entries(defectiveBySupplier)
-      .sort((a, b) => b[1].valor - a[1].valor)
-      .map(([name, info]) => ({ name, count: info.count, valor: info.valor }));
+    const targetIndicator = `
+      <div style="display:flex; align-items:center; gap:4px; font-size:var(--font-xs); font-weight:700; color:${isUnderTarget ? 'var(--success)' : 'var(--danger)'}; margin-top:4px;">
+        <span class="material-symbols-rounded" style="font-size:16px;">${isUnderTarget ? 'trending_down' : 'trending_up'}</span>
+        ${isUnderTarget ? 'POR DEBAJO' : 'POR ENCIMA'} (${Math.round(diffPercent)}%)
+      </div>
+    `;
+
+    // HEURISTIC AI: Simple Logic for "Where to focus"
+    const aiTips = [];
+    if (!isUnderTarget) {
+      const topSupplier = metrics[0];
+      if (topSupplier) {
+        aiTips.push({
+          icon: 'target',
+          title: `Prioridad: ${topSupplier.nombre}`,
+          text: `Resolver el stock de este proveedor reduciría el exceso en un ${Math.round((topSupplier.totalValorStock / Math.abs(diffTarget)) * 100)}% del objetivo.`
+        });
+      }
+      const agingItems = defective.filter(d => d._antiguedadDias > 365).length;
+      if (agingItems > 0) {
+        aiTips.push({
+          icon: 'history',
+          title: 'Stock Obsoleto (>1 año)',
+          text: `Tienes ${agingItems} artículos con más de un año. Liquidar estos ítems es la vía más rápida para sanear el balance.`
+        });
+      }
+    } else {
+      aiTips.push({
+        icon: 'verified',
+        title: 'Mantenimiento preventivo',
+        text: '¡Buen trabajo! Estás dentro del objetivo. Enfócate en las nuevas incidencias para mantener este nivel.'
+      });
+    }
 
     container.innerHTML = `
       <div class="section-header" style="margin-bottom: var(--space-xl); align-items: flex-end;">
-        <div>
-          <h2 style="font-size: var(--font-3xl); font-weight: 800; letter-spacing: -1.5px; line-height: 1;">Centro de Operaciones</h2>
-          <p style="color:var(--text-tertiary); font-size:var(--font-sm); margin-top: 8px; font-weight: 500;">
-            Estado del Stock Crítico y Gestión de Proveedores · ${new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-          </p>
+        <div style="display:flex; gap:var(--space-lg); align-items: flex-end;">
+          <!-- Target Input Card (New) -->
+          <div class="chart-card" style="padding: 12px 20px; min-width: 240px; margin-bottom: 0;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom: 4px;">
+              <span class="material-symbols-rounded" style="font-size:18px; color:var(--primary-400);">flag</span>
+              <span class="kpi-label" style="letter-spacing:0.5px;">Objetivo de Stock</span>
+            </div>
+            <div style="display:flex; align-items:center;">
+              <span style="font-size:var(--font-xl); font-weight:800; color:var(--text-tertiary); margin-right:4px;">€</span>
+              <input type="number" id="inputTargetStock" value="${targetStock}" class="form-input" 
+                style="border:none; padding:0; background:transparent; font-size:var(--font-xl); font-weight:800; color:var(--text-primary); max-width:140px; outline:none;"
+                onchange="Store.setObjetivo(this.value)">
+              <span class="material-symbols-rounded" style="font-size:18px; color:var(--text-tertiary); cursor:pointer;">edit</span>
+            </div>
+          </div>
+
+          <div>
+            <h2 style="font-size: var(--font-3xl); font-weight: 800; letter-spacing: -1.5px; line-height: 1;">Centro de Operaciones</h2>
+            <p style="color:var(--text-tertiary); font-size:var(--font-sm); margin-top: 8px; font-weight: 500;">
+              Estado del Stock Crítico y Gestión de Proveedores · ${new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </p>
+          </div>
         </div>
+        
         ${hasData ? `
         <div style="display:flex; gap: var(--space-sm);">
           <button class="btn btn-outline btn-sm" onclick="DashboardScreen.exportData()" style="padding: 10px 20px;">
@@ -52,45 +93,35 @@ const DashboardScreen = (() => {
       ${!hasData ? renderEmptyState() : `
         <!-- KPI Cards -->
         <div class="dashboard-grid">
-          <div class="kpi-card">
+          <div class="kpi-card" style="border-bottom: 3px solid ${isUnderTarget ? 'var(--success)' : 'var(--danger)'};">
             <div class="kpi-header">
               <span class="kpi-label">Exposición Total</span>
-              <div class="kpi-icon icon-danger">
-                <span class="material-symbols-rounded">payments</span>
+              <div class="kpi-icon" style="background:${isUnderTarget ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)'}; color:${isUnderTarget ? 'var(--success)' : 'var(--danger)'};">
+                <span class="material-symbols-rounded">${isUnderTarget ? 'verified' : 'priority_high'}</span>
               </div>
             </div>
             <div class="kpi-value">${Components.formatCurrency(totalValorStock)}</div>
-            <div class="kpi-sub">
-              <span class="material-symbols-rounded" style="font-size:16px; color:var(--danger);">error</span>
-              ${Components.formatCurrency(totalValorDefectuoso)} en riesgo
-            </div>
+            ${targetIndicator}
           </div>
 
-          <div class="kpi-card">
-            <div class="kpi-header">
-              <span class="kpi-label">Panel de Socios</span>
-              <div class="kpi-icon icon-warning">
-                <span class="material-symbols-rounded">handshake</span>
-              </div>
+          <!-- AI INSIGHTS CARD (New) -->
+          <div class="kpi-card" style="grid-column: span 2; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);">
+            <div class="kpi-header" style="margin-bottom: var(--space-sm);">
+              <span class="kpi-label" style="color:var(--primary-400);">
+                <span class="material-symbols-rounded" style="font-size:16px; margin-right:4px; vertical-align:middle;">auto_awesome</span>
+                Análisis Inteligente (AI Insights)
+              </span>
             </div>
-            <div class="kpi-value">${metrics.length}</div>
-            <div class="kpi-sub">
-              <span class="material-symbols-rounded" style="font-size:16px; color:var(--warning);">notification_important</span>
-              ${numProvCriticos} requieren acción inmediata
-            </div>
-          </div>
-
-          <div class="kpi-card">
-            <div class="kpi-header">
-              <span class="kpi-label">Volumen Defectuoso</span>
-              <div class="kpi-icon icon-info">
-                <span class="material-symbols-rounded">inventory_2</span>
-              </div>
-            </div>
-            <div class="kpi-value">${Components.formatNumber(totalRefsDefectuosas)}</div>
-            <div class="kpi-sub">
-              <span class="material-symbols-rounded" style="font-size:16px; color:var(--info);">info</span>
-              ${Math.round((totalRefsDefectuosas / totalRefs) * 100)}% del catálogo total
+            <div style="display:flex; gap:var(--space-md);">
+              ${aiTips.map(tip => `
+                <div style="flex:1; background:rgba(255,255,255,0.03); border-radius:var(--radius-md); padding:12px; border:1px solid rgba(255,255,255,0.05);">
+                  <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                    <span class="material-symbols-rounded" style="font-size:20px; color:var(--primary-300);">${tip.icon}</span>
+                    <strong style="font-size:var(--font-sm);">${tip.title}</strong>
+                  </div>
+                  <p style="font-size:var(--font-xs); color:var(--text-tertiary); line-height:1.4;">${tip.text}</p>
+                </div>
+              `).join('')}
             </div>
           </div>
 
