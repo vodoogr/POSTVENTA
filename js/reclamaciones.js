@@ -4,127 +4,109 @@
 const ReclamacionesScreen = (() => {
 
   function render(container) {
-    const claims = Store.state.reclamaciones;
+    const s = Store.state;
+    const claims = s.reclamaciones;
 
-    // Stats
-    const pendientes = claims.filter(c => c.estado === 'Pendiente').length;
-    const enGestion = claims.filter(c => c.estado === 'En gestión').length;
-    const valorTotal = claims.reduce((s, c) => s + (c.valorTotal || 0), 0);
+    const pendientes = claims.filter(c => c.estado === 'Pendiente');
+    const enGestion = claims.filter(c => c.estado === 'En gestión');
+    const resueltas = claims.filter(c => c.estado === 'Resuelta');
 
     container.innerHTML = `
       <div class="section-header">
         <div>
-          <h3>Centro de Reclamaciones</h3>
+          <h3>Centro de Operaciones: Reclamaciones</h3>
           <p style="color:var(--text-secondary);font-size:var(--font-sm);margin-top:4px;">
-            ${claims.length > 0 ? `${claims.length} reclamaciones registradas` : 'Sin reclamaciones'}
+            ${claims.length > 0 ? `${claims.length} reclamaciones activas en el tablero` : 'Sin reclamaciones'}
           </p>
         </div>
         <div style="display:flex;gap:var(--space-sm);">
           <button class="btn btn-primary" onclick="ReclamacionesScreen.openNewClaim()">
             <span class="material-symbols-rounded">add</span> Nueva Reclamación
           </button>
-          ${claims.length > 0 ? `
-            <button class="btn btn-outline btn-sm" onclick="ReclamacionesScreen.exportClaims()">
-              <span class="material-symbols-rounded">download</span> Exportar
-            </button>
-          ` : ''}
+          ${claims.length > 0 ? `<button class="btn btn-outline btn-sm" onclick="ReclamacionesScreen.exportClaims()"><span class="material-symbols-rounded">download</span> Exportar</button>` : ''}
         </div>
       </div>
 
-      ${claims.length > 0 ? `
-        <!-- Stats -->
-        <div class="dashboard-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:var(--space-lg);">
-          <div class="kpi-card kpi-warning" style="padding:var(--space-md);">
-            <div class="kpi-label">Pendientes</div>
-            <div class="kpi-value" style="font-size:var(--font-xl);">${pendientes}</div>
-          </div>
-          <div class="kpi-card kpi-info" style="padding:var(--space-md);">
-            <div class="kpi-label">En Gestión</div>
-            <div class="kpi-value" style="font-size:var(--font-xl);">${enGestion}</div>
-          </div>
-          <div class="kpi-card kpi-danger" style="padding:var(--space-md);">
-            <div class="kpi-label">Valor Total</div>
-            <div class="kpi-value" style="font-size:var(--font-xl);">${Components.formatCurrency(valorTotal)}</div>
-          </div>
-        </div>
+      <div class="kanban-board">
+        ${renderColumn('PENDIENTE', pendientes, 'var(--warning)')}
+        ${renderColumn('EN GESTIÓN', enGestion, 'var(--primary-400)')}
+        ${renderColumn('RESUELTA', resueltas, 'var(--success)')}
+      </div>
+    `;
+  }
 
-        <!-- Claims list -->
-        <div id="claimsList">
-          ${claims.map(c => renderClaimCard(c)).join('')}
+  function renderColumn(title, list, color) {
+    return `
+      <div class="kanban-column">
+        <div class="kanban-header">
+          <h3 style="color:${color};">${title}</h3>
+          <span class="count-badge">${list.length}</span>
         </div>
-      ` : `
-        <div class="empty-state">
-          <span class="material-symbols-rounded">description</span>
-          <h3>Sin reclamaciones</h3>
-          <p>Crea una nueva reclamación desde aquí o desde la pantalla de Stock Defectuoso o Proveedores.</p>
-          <button class="btn btn-primary" onclick="ReclamacionesScreen.openNewClaim()">
-            <span class="material-symbols-rounded">add</span> Nueva Reclamación
-          </button>
+        <div class="kanban-cards">
+          ${list.length > 0 ? list.map(c => renderClaimCard(c)).join('') : `
+            <div style="text-align:center; padding:var(--space-xl) 0; opacity:0.3; font-size:var(--font-xs);">
+              <span class="material-symbols-rounded" style="font-size:32px; display:block; margin-bottom:8px;">inbox</span>
+              Sin reclamaciones
+            </div>
+          `}
         </div>
-      `}
+      </div>
     `;
   }
 
   function renderClaimCard(c) {
+    const isDelayed = c.estado === 'En gestión' && (() => {
+      const start = new Date(c.gestion_started_at || c.fecha);
+      const diffDays = (new Date() - start) / (1000 * 60 * 60 * 24);
+      return diffDays > 7;
+    })();
+
     return `
-      <div class="claim-card" id="claim-${c.id}">
+      <div class="claim-card status-${c.estado.toLowerCase().replace(' ', '-')}" id="claim-${c.id}">
         <div class="claim-card-header">
-          <div>
-            <span class="claim-id">#${c.id}</span>
-            <span style="color:var(--text-tertiary);font-size:var(--font-xs);margin-left:var(--space-sm);">${Components.formatDate(c.fecha)}</span>
-          </div>
-          ${Components.statusBadge(c.estado)}
+          <span class="claim-id">#${c.id}</span>
+          <span style="font-size:10px; color:var(--text-tertiary);">${Components.formatDate(c.fecha)}</span>
         </div>
-        <div class="claim-meta">
-          <div class="claim-meta-item">
-            <span class="claim-meta-label">Proveedor</span>
-            <span class="claim-meta-value">${c.proveedor}</span>
-          </div>
-          <div class="claim-meta-item">
-            <span class="claim-meta-label">Nº Artículos</span>
-            <span class="claim-meta-value">${c.articulos ? c.articulos.length : 0}</span>
-          </div>
-          <div class="claim-meta-item">
-            <span class="claim-meta-label">Valor Total</span>
-            <span class="claim-meta-value cell-danger">${Components.formatCurrency(c.valorTotal)}</span>
-          </div>
-          ${c.emailEnviado ? `
-            <div class="claim-meta-item">
-              <span class="claim-meta-label">Email</span>
-              <span class="claim-meta-value" style="color:var(--success);">Enviado</span>
-            </div>
-          ` : ''}
+        
+        <div class="claim-prov">${c.proveedor}</div>
+        
+        <div style="font-size:var(--font-xs); color:var(--text-secondary); margin-bottom:8px;">
+          ${c.articulos ? c.articulos.length : 0} artículos · <strong>${Components.formatCurrency(c.valorTotal)}</strong>
         </div>
-        ${c.articulos && c.articulos.length > 0 ? `
-          <div class="claim-articles">
-            <strong style="font-size:var(--font-xs);color:var(--text-tertiary);">ARTÍCULOS:</strong>
-            <div style="margin-top:var(--space-xs);display:flex;flex-wrap:wrap;gap:4px;">
-              ${c.articulos.map(a => {
-      const name = typeof a === 'string' ? a : a.name;
-      const code = typeof a === 'object' ? a.code : '';
-      return `<div style="padding:4px 10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:var(--radius-md);font-size:var(--font-xs);">
-                <div style="font-weight:600;">${name}</div>
-                ${code ? `<div style="color:var(--text-tertiary);font-size:10px;">${code}</div>` : ''}
-              </div>`;
-    }).join('')}
-            </div>
+
+        ${isDelayed ? `
+          <div class="delay-alert">
+            <span class="material-symbols-rounded" style="font-size:14px;">history</span>
+            DEMORADA (+7 DÍAS)
           </div>
         ` : ''}
-        <div style="display:flex;gap:var(--space-xs);margin-top:var(--space-md);justify-content:flex-end;">
+
+        <div class="claim-actions-mini">
           ${c.estado === 'Pendiente' ? `
-            <button class="btn btn-sm btn-outline" onclick="ReclamacionesScreen.changeStatus('${c.id}', 'En gestión')">
-              <span class="material-symbols-rounded">play_arrow</span> Iniciar Gestión
+            <button class="btn btn-primary btn-sm" onclick="ReclamacionesScreen.changeStatus('${c.id}', 'En gestión')" title="Pasar a Gestión">
+              <span class="material-symbols-rounded">play_arrow</span>
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="ReclamacionesScreen.generateEmail('${c.id}')" title="Generar Email">
+              <span class="material-symbols-rounded">mail</span>
             </button>
           ` : ''}
+          
           ${c.estado === 'En gestión' ? `
-            <button class="btn btn-sm btn-success" onclick="ReclamacionesScreen.changeStatus('${c.id}', 'Resuelta')">
-              <span class="material-symbols-rounded">check</span> Resolver
+            <button class="btn btn-success btn-sm" onclick="ReclamacionesScreen.changeStatus('${c.id}', 'Resuelta')" title="Marcar como Resuelta">
+              <span class="material-symbols-rounded">check</span>
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="ReclamacionesScreen.changeStatus('${c.id}', 'Pendiente')" title="Mover a Pendiente">
+              <span class="material-symbols-rounded">undo</span>
             </button>
           ` : ''}
-          <button class="btn btn-sm btn-outline" onclick="ReclamacionesScreen.generateEmail('${c.id}')">
-            <span class="material-symbols-rounded">mail</span> Generar Email
-          </button>
-          <button class="btn btn-sm btn-ghost" onclick="ReclamacionesScreen.deleteClaim('${c.id}')" style="color:var(--danger);">
+
+          ${c.estado === 'Resuelta' ? `
+            <button class="btn btn-outline btn-sm" onclick="ReclamacionesScreen.changeStatus('${c.id}', 'En gestión')" title="Reabrir">
+              <span class="material-symbols-rounded">history</span>
+            </button>
+          ` : ''}
+
+          <button class="btn btn-ghost btn-sm" onclick="ReclamacionesScreen.deleteClaim('${c.id}')" style="margin-left:auto;">
             <span class="material-symbols-rounded">delete</span>
           </button>
         </div>

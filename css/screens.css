@@ -92,57 +92,127 @@
     font-weight: 500;
 }
 
-/* ---- Reclamaciones Screen ---- */
+/* ---- Reclamaciones Screen (Kanban) ---- */
+.kanban-board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-lg);
+    height: calc(100vh - 200px);
+    padding-bottom: var(--space-xl);
+}
+
+.kanban-column {
+    display: flex;
+    flex-direction: column;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    min-height: 500px;
+}
+
+.kanban-header {
+    padding: var(--space-md) var(--space-lg);
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.kanban-header h3 {
+    font-size: var(--font-sm);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.kanban-header .count-badge {
+    background: var(--bg-card);
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--text-tertiary);
+}
+
+.kanban-cards {
+    padding: var(--space-md);
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
 .claim-card {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
-    padding: var(--space-lg);
-    margin-bottom: var(--space-md);
+    padding: var(--space-md);
     transition: all var(--transition-base);
+    position: relative;
+    cursor: default;
+    border-left: 4px solid var(--border-color);
 }
 
 .claim-card:hover {
     border-color: var(--border-hover);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
 }
+
+.claim-card.status-pendiente { border-left-color: var(--warning); }
+.claim-card.status-en-gestion { border-left-color: var(--primary-400); }
+.claim-card.status-resuelta { border-left-color: var(--success); }
 
 .claim-card-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--space-md);
+    margin-bottom: var(--space-sm);
 }
 
 .claim-id {
-    font-weight: 700;
-    font-size: var(--font-md);
-}
-
-.claim-meta {
-    display: flex;
-    gap: var(--space-lg);
-    margin-bottom: var(--space-md);
-}
-
-.claim-meta-item {
-    display: flex;
-    flex-direction: column;
-}
-
-.claim-meta-label {
-    font-size: var(--font-xs);
-    color: var(--text-tertiary);
-}
-
-.claim-meta-value {
+    font-weight: 800;
     font-size: var(--font-sm);
-    font-weight: 600;
+    color: var(--primary-300);
 }
 
-.claim-articles {
-    border-top: 1px solid var(--border-color);
-    padding-top: var(--space-md);
+.claim-prov {
+    font-size: var(--font-sm);
+    font-weight: 700;
+    margin-bottom: 4px;
+    color: var(--text-primary);
+}
+
+.claim-meta-mini {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-top: var(--space-md);
+    border-top: 1px solid rgba(255,255,255,0.05);
+    padding-top: 8px;
+}
+
+.claim-actions-mini {
+    display: flex;
+    gap: 4px;
+    margin-top: 12px;
+}
+
+.delay-alert {
+    background: var(--danger-bg);
+    color: var(--danger);
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 6px;
+    animation: pulse-border 2s infinite;
 }
 
 /* ---- Recomendaciones Screen ---- */

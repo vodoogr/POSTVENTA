@@ -55,8 +55,28 @@ const DashboardScreen = (() => {
       </div>
     `;
 
+    // PROACTIVE ALERTS: Delayed claims (> 7 days in "En gestión")
+    const now = new Date();
+    const delayedClaims = s.reclamaciones.filter(c => {
+      if (c.estado !== 'En gestión') return false;
+      const start = new Date(c.gestion_started_at || c.fecha);
+      const diffDays = (now - start) / (1000 * 60 * 60 * 24);
+      return diffDays > 7;
+    });
+
     // HEURISTIC AI: Simple Logic for "Where to focus"
     const aiTips = [];
+
+    // Alert for delayed claims (Priority 1)
+    if (delayedClaims.length > 0) {
+      aiTips.push({
+        icon: 'notification_important',
+        title: 'Alerta: Gestión demorada',
+        text: `Tienes ${delayedClaims.length} reclamaciones en gestión hace más de 7 días. Contacta con el proveedor para cerrar el abono.`,
+        critical: true
+      });
+    }
+
     if (!isUnderTarget) {
       const topSupplier = metrics[0];
       if (topSupplier) {
@@ -139,15 +159,15 @@ const DashboardScreen = (() => {
               </span>
             </div>
             <div style="display:flex; gap:var(--space-md);">
-              ${aiTips.map(tip => `
-                <div style="flex:1; background:rgba(255,255,255,0.03); border-radius:var(--radius-md); padding:12px; border:1px solid rgba(255,255,255,0.05);">
-                  <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-                    <span class="material-symbols-rounded" style="font-size:20px; color:var(--primary-300);">${tip.icon}</span>
-                    <strong style="font-size:var(--font-sm);">${tip.title}</strong>
-                  </div>
-                  <p style="font-size:var(--font-xs); color:var(--text-tertiary); line-height:1.4;">${tip.text}</p>
-                </div>
-              `).join('')}
+                  ${aiTips.map(tip => `
+                    <div style="flex:1; background:${tip.critical ? 'rgba(239, 68, 68, 0.08)' : 'rgba(255,255,255,0.03)'}; border-radius:var(--radius-md); padding:12px; border:1px solid ${tip.critical ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255,255,255,0.05)'}; position:relative; ${tip.critical ? 'animation: pulse-border 2s infinite;' : ''}">
+                      <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                        <span class="material-symbols-rounded" style="font-size:20px; color:${tip.critical ? 'var(--danger)' : 'var(--primary-300)'};">${tip.icon}</span>
+                        <strong style="font-size:var(--font-sm); ${tip.critical ? 'color:var(--danger);' : ''}">${tip.title}</strong>
+                      </div>
+                      <p style="font-size:var(--font-xs); color:${tip.critical ? 'var(--text-primary)' : 'var(--text-tertiary)'}; line-height:1.4;">${tip.text}</p>
+                    </div>
+                  `).join('')}
             </div>
           </div>
 

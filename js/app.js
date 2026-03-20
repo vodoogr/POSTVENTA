@@ -22,6 +22,7 @@ const App = (() => {
         setupUpload();
         setupSupabaseLoad();
         setupModalClose();
+        setupUniversalSearch();
 
         // Listen for data changes
         Store.on('data-recalculated', () => {
@@ -195,6 +196,110 @@ const App = (() => {
         document.getElementById('menuToggle')?.addEventListener('click', () => {
             document.getElementById('sidebar')?.classList.toggle('open');
         });
+
+        // Universal Search Events
+        const searchInput = document.getElementById('universalSearchInput');
+        searchInput?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && searchInput.value.trim().length >= 2) {
+                openUniversalSearch(searchInput.value.trim());
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                e.preventDefault();
+                searchInput?.focus();
+            }
+        });
+    }
+
+    /** Perform a search across all datasets and show results */
+    function openUniversalSearch(query) {
+        const q = query.toLowerCase();
+        const s = Store.state;
+
+        // Search Articles (Joined Data)
+        const articles = s.joinedData.filter(row => 
+            (row['Artículo'] || '').toLowerCase().includes(q) || 
+            (row['Cod.Artículo'] || '').toLowerCase().includes(q) ||
+            (row['RefProv'] || '').toLowerCase().includes(q)
+        ).slice(0, 10);
+
+        // Search Suppliers
+        const suppliers = s.proveedoresRaw.filter(p => 
+            (p['Nombre'] || '').toLowerCase().includes(q) || 
+            (p['Nombre Comercial'] || '').toLowerCase().includes(q) ||
+            (p['Código'] || '').toLowerCase().includes(q)
+        ).slice(0, 5);
+
+        // Search Claims
+        const claims = s.reclamaciones.filter(c => 
+            c.id.toLowerCase().includes(q) || 
+            (c.proveedor || '').toLowerCase().includes(q) ||
+            (c.notas || '').toLowerCase().includes(q)
+        ).slice(0, 5);
+
+        const body = `
+            <div class="search-results">
+                ${articles.length === 0 && suppliers.length === 0 && claims.length === 0 ? 
+                    `<div class="empty-state" style="padding:var(--space-xl) 0;">
+                        <span class="material-symbols-rounded">search_off</span>
+                        <p>No se encontraron resultados para "${query}"</p>
+                    </div>` : ''
+                }
+
+                ${articles.length > 0 ? `
+                    <div class="search-result-group">
+                        <div class="search-group-header">Artículos (${articles.length})</div>
+                        ${articles.map(a => `
+                            <div class="search-result-item" onclick="Components.closeModal(); StockScreen.renderDetail('${a['Cod.Artículo'] || a['Artículo']}')">
+                                <span class="material-symbols-rounded">inventory_2</span>
+                                <div>
+                                    <div class="result-title">${a['Artículo'] || 'Sin nombre'}</div>
+                                    <div class="result-meta">${a['Cod.Artículo']} · ${a['Proveedor']}</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+
+                ${suppliers.length > 0 ? `
+                    <div class="search-result-group">
+                        <div class="search-group-header">Proveedores (${suppliers.length})</div>
+                        ${suppliers.map(p => `
+                            <div class="search-result-item" onclick="Components.closeModal(); App.navigateTo('proveedores')">
+                                <span class="material-symbols-rounded">groups</span>
+                                <div>
+                                    <div class="result-title">${p['Nombre Comercial'] || p['Nombre']}</div>
+                                    <div class="result-meta">Cód: ${p['Código']} · ${p['Email'] || 'Sin email'}</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+
+                ${claims.length > 0 ? `
+                    <div class="search-result-group">
+                        <div class="search-group-header">Reclamaciones (${claims.length})</div>
+                        ${claims.map(c => `
+                            <div class="search-result-item" onclick="Components.closeModal(); App.navigateTo('reclamaciones')">
+                                <span class="material-symbols-rounded">report_problem</span>
+                                <div>
+                                    <div class="result-title">Reclamación ${c.id}</div>
+                                    <div class="result-meta">${c.proveedor} · ${Components.statusBadge(c.estado)}</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+
+        Components.openModal(`Resultados para "${query}"`, body, null, 'md');
+    }
+
+    function setupUniversalSearch() {
+        // Handled in setupNavigation for simplicity
     }
 
     function navigateTo(page) {

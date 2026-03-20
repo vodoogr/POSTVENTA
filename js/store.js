@@ -296,6 +296,12 @@ Centro 63 — Departamento de Postventa
     function updateReclamacion(id, updates) {
         const idx = state.reclamaciones.findIndex(r => r.id === id);
         if (idx >= 0) {
+            // If moving to "En gestión", record the start date for aging alerts
+            if (updates.estado === 'En gestión' && state.reclamaciones[idx].estado !== 'En gestión') {
+                updates.gestion_started_at = new Date().toISOString();
+            }
+            // If moving out of "En gestión" (to Resuelta), optionally clear it or keep it as history
+            
             Object.assign(state.reclamaciones[idx], updates);
             saveReclamaciones();
             // Sync to Supabase
